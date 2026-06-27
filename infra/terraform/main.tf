@@ -4,7 +4,7 @@ terraform {
     aws = { source = "hashicorp/aws", version = "~> 5.0" }
   }
   backend "s3" {
-    bucket         = "marginly-tf-state"
+    bucket         = "marginly-tf-state-094155361146"
     key            = "prod/terraform.tfstate"
     region         = "us-east-1"
     encrypt        = true
@@ -216,6 +216,8 @@ module "ecs" {
   alb_arn_suffix           = module.alb.alb_arn_suffix
   target_group_arn_suffix  = module.alb.target_group_arn_suffix
   common_tags              = local.common_tags
+
+  depends_on = [module.alb]
 }
 
 # ── Route53 ──────────────────────────────────────────────────────────────────

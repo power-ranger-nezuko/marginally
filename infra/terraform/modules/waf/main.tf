@@ -44,12 +44,16 @@ resource "aws_wafv2_web_acl" "regional" {
   description = "Marginly ${var.environment} WAF for ALB"
   scope       = "REGIONAL"
 
-  default_action { allow {} }
+  default_action {
+    allow {}
+  }
 
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 10
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
@@ -66,7 +70,9 @@ resource "aws_wafv2_web_acl" "regional" {
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 20
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesKnownBadInputsRuleSet"
@@ -83,7 +89,9 @@ resource "aws_wafv2_web_acl" "regional" {
   rule {
     name     = "AWSManagedRulesSQLiRuleSet"
     priority = 30
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesSQLiRuleSet"
@@ -100,7 +108,9 @@ resource "aws_wafv2_web_acl" "regional" {
   rule {
     name     = "RateLimitPerIP"
     priority = 40
-    action { block {} }
+    action {
+      block {}
+    }
     statement {
       rate_based_statement {
         limit              = 2000
@@ -117,7 +127,9 @@ resource "aws_wafv2_web_acl" "regional" {
   rule {
     name     = "RateLimitLoginEndpoint"
     priority = 50
-    action { block {} }
+    action {
+      block {}
+    }
     statement {
       rate_based_statement {
         limit              = 20
@@ -125,7 +137,9 @@ resource "aws_wafv2_web_acl" "regional" {
         scope_down_statement {
           regex_pattern_set_reference_statement {
             arn = aws_wafv2_regex_pattern_set.login_path[0].arn
-            field_to_match { uri_path {} }
+            field_to_match {
+              uri_path {}
+            }
             text_transformation {
               priority = 0
               type     = "LOWERCASE"
@@ -159,12 +173,16 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   description = "Marginly ${var.environment} WAF for CloudFront"
   scope       = "CLOUDFRONT"
 
-  default_action { allow {} }
+  default_action {
+    allow {}
+  }
 
   rule {
     name     = "AWSManagedRulesCommonRuleSet"
     priority = 10
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesCommonRuleSet"
@@ -181,7 +199,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   rule {
     name     = "AWSManagedRulesKnownBadInputsRuleSet"
     priority = 20
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesKnownBadInputsRuleSet"
@@ -198,7 +218,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   rule {
     name     = "AWSManagedRulesSQLiRuleSet"
     priority = 30
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     statement {
       managed_rule_group_statement {
         name        = "AWSManagedRulesSQLiRuleSet"
@@ -215,7 +237,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   rule {
     name     = "RateLimitPerIP"
     priority = 40
-    action { block {} }
+    action {
+      block {}
+    }
     statement {
       rate_based_statement {
         limit              = 2000
@@ -232,7 +256,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
   rule {
     name     = "RateLimitLoginEndpoint"
     priority = 50
-    action { block {} }
+    action {
+      block {}
+    }
     statement {
       rate_based_statement {
         limit              = 20
@@ -240,7 +266,9 @@ resource "aws_wafv2_web_acl" "cloudfront" {
         scope_down_statement {
           regex_pattern_set_reference_statement {
             arn = aws_wafv2_regex_pattern_set.login_path_cf[0].arn
-            field_to_match { uri_path {} }
+            field_to_match {
+              uri_path {}
+            }
             text_transformation {
               priority = 0
               type     = "LOWERCASE"

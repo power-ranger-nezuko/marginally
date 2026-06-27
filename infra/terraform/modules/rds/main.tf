@@ -9,7 +9,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_parameter_group" "postgres16" {
   name        = "marginly-${var.environment}-pg16"
   family      = "postgres16"
-  description = "Marginly PostgreSQL 16 parameter group — enforce SSL"
+  description = "Marginly PostgreSQL 16 parameter group - enforce SSL"
 
   parameter {
     name  = "rds.force_ssl"
@@ -66,8 +66,8 @@ resource "aws_db_instance" "main" {
   final_snapshot_identifier = var.environment == "prod" ? "marginly-prod-final-${formatdate("YYYYMMDDHHmmss", timestamp())}" : null
 
   performance_insights_enabled = true
-  monitoring_interval          = var.full_scale ? 60 : 0
-  monitoring_role_arn          = aws_iam_role.rds_enhanced_monitoring.arn
+  monitoring_interval = var.full_scale ? 60 : 0
+  monitoring_role_arn = var.full_scale ? aws_iam_role.rds_enhanced_monitoring.arn : null
 
   enabled_cloudwatch_logs_exports = var.full_scale ? ["postgresql", "upgrade"] : []
 

@@ -39,6 +39,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "invoices" {
     id     = "delete-after-365-days"
     status = "Enabled"
 
+    filter {}
+
     expiration {
       days = 365
     }
