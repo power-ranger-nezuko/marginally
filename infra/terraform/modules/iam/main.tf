@@ -95,6 +95,12 @@ resource "aws_iam_role_policy" "worker_task" {
         Effect = "Allow"
         Action = ["ses:SendEmail", "ses:SendRawEmail"]
         Resource = ["*"]
+      },
+      {
+        Sid    = "SnsSendSms"
+        Effect = "Allow"
+        Action = ["sns:Publish"]
+        Resource = ["*"]
       }
     ]
   })
@@ -121,12 +127,6 @@ resource "aws_iam_role_policy" "pdf_task" {
         Action = ["s3:PutObject"]
         Resource = ["${var.invoices_bucket_arn}/*"]
       },
-      {
-        Sid    = "SecretsManagerPostmark"
-        Effect = "Allow"
-        Action = ["secretsmanager:GetSecretValue"]
-        Resource = [var.postmark_secret_arn]
-      }
     ]
   })
 }

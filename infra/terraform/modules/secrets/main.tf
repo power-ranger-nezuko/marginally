@@ -4,9 +4,6 @@ locals {
     jwt_public_key        = "RSA public key for JWT RS256 verification"
     stripe_platform_key   = "Stripe platform secret key"
     stripe_webhook_secret = "Stripe webhook signing secret"
-    postmark_key          = "Postmark API key for transactional email"
-    twilio_account_sid    = "Twilio Account SID"
-    twilio_auth_token     = "Twilio Auth Token"
     shopify_api_secret    = "Shopify API secret for webhook HMAC verification"
     widget_secret         = "HMAC secret for signing cancellation-widget tokens"
   }

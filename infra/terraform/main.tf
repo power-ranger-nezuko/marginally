@@ -115,7 +115,7 @@ module "iam" {
   invoices_bucket_arn = module.s3.invoices_bucket_arn
   webhook_queue_arn   = module.sqs.webhook_queue_arn
   secrets_prefix_arn  = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:/marginly/${var.environment}/*"
-  postmark_secret_arn = module.secrets.postmark_key_arn
+
   aws_region          = var.aws_region
   common_tags         = local.common_tags
 }

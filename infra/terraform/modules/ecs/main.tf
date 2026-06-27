@@ -66,9 +66,6 @@ locals {
     { name = "JWT_PUBLIC_KEY",        valueFrom = var.secrets["jwt_public_key"] },
     { name = "STRIPE_PLATFORM_KEY",   valueFrom = var.secrets["stripe_platform_key"] },
     { name = "STRIPE_WEBHOOK_SECRET", valueFrom = var.secrets["stripe_webhook_secret"] },
-    { name = "POSTMARK_KEY",          valueFrom = var.secrets["postmark_key"] },
-    { name = "TWILIO_ACCOUNT_SID",    valueFrom = var.secrets["twilio_account_sid"] },
-    { name = "TWILIO_AUTH_TOKEN",     valueFrom = var.secrets["twilio_auth_token"] },
     { name = "SHOPIFY_API_SECRET",    valueFrom = var.secrets["shopify_api_secret"] },
     { name = "WIDGET_SECRET",         valueFrom = var.secrets["widget_secret"] },
   ]
@@ -204,10 +201,6 @@ resource "aws_ecs_task_definition" "pdf" {
     environment = [
       { name = "NODE_ENV",    value = var.environment },
       { name = "AWS_REGION",  value = var.aws_region },
-    ]
-
-    secrets = [
-      { name = "POSTMARK_KEY", valueFrom = var.secrets["postmark_key"] }
     ]
 
     logConfiguration = {

@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } 
 import { Queue, Worker, Job } from 'bullmq';
 import { FailedPaymentStatus, RecoveryChannel, RecoveryResult, Prisma } from '@prisma/client';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { PrismaService } from '@core/prisma/prisma.service';
 import { AuditLogService } from '@core/audit-log/audit-log.service';
 import { CreateRecoverySequenceDto, RecoveryStepDto } from './dtos/create-recovery-sequence.dto';
@@ -28,6 +29,7 @@ interface StripeInvoicePaymentFailedEvent {
 export class DunningService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DunningService.name);
   private readonly ses: SESClient;
+  private readonly sns: SNSClient;
   readonly dunningQueue: Queue;
   private worker: Worker | null = null;
 
@@ -35,7 +37,9 @@ export class DunningService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly auditLog: AuditLogService,
   ) {
-    this.ses = new SESClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+    const region = process.env.AWS_REGION ?? 'us-east-1';
+    this.ses = new SESClient({ region });
+    this.sns = new SNSClient({ region });
     this.dunningQueue = new Queue('dunning-retries', { connection: REDIS_CONNECTION });
   }
 
@@ -185,11 +189,7 @@ export class DunningService implements OnModuleInit, OnModuleDestroy {
 
     const { subject, body } = this.buildEmailContent(fp, stepIndex, step);
 
-    if (process.env.POSTMARK_API_KEY) {
-      await this.sendViaPostmark(fp.stripeCustomerId, subject, body);
-    } else {
-      await this.sendViaSes(fp.stripeCustomerId, subject, body);
-    }
+    await this.sendViaSes(fp.stripeCustomerId, subject, body);
 
     await this.prisma.recoveryAttempt.create({
       data: {
@@ -210,35 +210,17 @@ export class DunningService implements OnModuleInit, OnModuleDestroy {
 
     if (!fp) throw new NotFoundException('FailedPayment not found');
 
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const fromNumber = process.env.TWILIO_FROM_NUMBER;
+    const message = `Payment of ${fp.amount / 100} ${fp.currency.toUpperCase()} failed. Please update your payment method.`;
 
-    if (!accountSid || !authToken || !fromNumber) {
-      this.logger.warn('Twilio credentials not configured; skipping SMS');
-    } else {
-      const message = `Payment of ${fp.amount / 100} ${fp.currency.toUpperCase()} failed. Please update your payment method.`;
-
-      const resp = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            From: fromNumber,
-            To: fp.stripeCustomerId,
-            Body: message,
-          }).toString(),
+    await this.sns.send(
+      new PublishCommand({
+        PhoneNumber: fp.stripeCustomerId,
+        Message: message,
+        MessageAttributes: {
+          'AWS.SNS.SMS.SMSType': { DataType: 'String', StringValue: 'Transactional' },
         },
-      );
-
-      if (!resp.ok) {
-        this.logger.error(`Twilio SMS failed: ${resp.status}`);
-      }
-    }
+      }),
+    );
 
     await this.prisma.recoveryAttempt.create({
       data: {
@@ -502,25 +484,4 @@ export class DunningService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
-  private async sendViaPostmark(to: string, subject: string, body: string): Promise<void> {
-    const fromEmail = process.env.POSTMARK_FROM_EMAIL ?? 'noreply@marginly.app';
-
-    const resp = await fetch('https://api.postmarkapp.com/email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Postmark-Server-Token': process.env.POSTMARK_API_KEY!,
-      },
-      body: JSON.stringify({
-        From: fromEmail,
-        To: to,
-        Subject: subject,
-        TextBody: body,
-      }),
-    });
-
-    if (!resp.ok) {
-      this.logger.error(`Postmark send failed: ${resp.status}`);
-    }
-  }
 }

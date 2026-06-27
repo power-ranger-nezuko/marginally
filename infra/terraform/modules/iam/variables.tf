@@ -26,10 +26,6 @@ variable "secrets_prefix_arn" {
   type = string
 }
 
-variable "postmark_secret_arn" {
-  type = string
-}
-
 variable "common_tags" {
   type = map(string)
 }
