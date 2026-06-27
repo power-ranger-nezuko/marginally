@@ -1,0 +1,9 @@
+node_modules
+dist
+coverage
+*.spec.ts
+*.test.ts
+test/
+.env
+.env.*
+npm-debug.log*

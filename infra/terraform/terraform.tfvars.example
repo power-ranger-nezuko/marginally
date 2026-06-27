@@ -1,0 +1,37 @@
+environment       = "staging"
+aws_region        = "us-east-1"
+domain_name       = "usemarginly.com"
+db_instance_class = "db.t4g.micro"
+app_image_tag     = "latest"
+alert_email       = "ops@usemarginly.com"
+vpc_cidr          = "10.0.0.0/16"
+
+# ── Deployment mode flags ─────────────────────────────────────────────────────
+#
+# lean_scale (default: true)
+#   ECS tasks in public subnets with public IPs — no NAT gateway billed.
+#   Single-AZ RDS, 1 Redis node. Saves ~$77/mo vs full_scale.
+#   Good for early launch and staging.
+#
+# full_scale (default: false)
+#   2 NAT gateways, ECS in private subnets, Multi-AZ RDS, 2 Redis nodes.
+#   Switch to this when you need HA. Zero-downtime rolling deploy handled
+#   automatically by Terraform dependency ordering.
+#   Mutually exclusive with lean_scale.
+#
+# advanced_security (default: false)
+#   WAF (Regional + CloudFront), GuardDuty, CloudTrail.
+#   Add when pursuing SOC 2 / compliance or seeing attack traffic.
+#   Can be enabled independently of the scale mode.
+#
+lean_scale        = true
+full_scale        = false
+advanced_security = false
+
+# To upgrade to full HA:
+#   1. Set lean_scale = false, full_scale = true
+#   2. terraform apply  →  zero-downtime rolling deploy
+#
+# To add security hardening at any time:
+#   1. Set advanced_security = true
+#   2. terraform apply

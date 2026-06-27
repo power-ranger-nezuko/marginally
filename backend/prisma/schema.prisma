@@ -1,0 +1,436 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── CORE ────────────────────────────────────────────────────────────────────
+
+enum Plan {
+  STARTER
+  GROWTH
+  SUITE
+}
+
+enum BillingStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  TRIALING
+}
+
+model Tenant {
+  id            String        @id @default(uuid())
+  name          String
+  plan          Plan          @default(STARTER)
+  billingStatus BillingStatus @default(TRIALING)
+  stripeCustomerId String?   @unique
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  users         User[]
+  connections   Connection[]
+  auditLogs     AuditLog[]
+
+  // Module tables
+  failedPayments       FailedPayment[]
+  recoverySequences    RecoverySequence[]
+  recoveryAttempts     RecoveryAttempt[]
+  saveOffers           SaveOffer[]
+  cancellationAttempts CancellationAttempt[]
+  disputes             Dispute[]
+  evidenceBundles      EvidenceBundle[]
+  accountingConnections AccountingConnection[]
+  syncedTransactions   SyncedTransaction[]
+  invoiceTemplates     InvoiceTemplate[]
+  generatedInvoices    GeneratedInvoice[]
+  webhookEvents        WebhookEvent[]
+  alertRules           AlertRule[]
+  refreshTokens        RefreshToken[]
+
+  @@map("tenants")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String
+  email        String
+  role         UserRole @default(MEMBER)
+  passwordHash String
+  failedLogins Int      @default(0)
+  lockedUntil  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  auditLogs     AuditLog[]
+  refreshTokens RefreshToken[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+enum Provider {
+  STRIPE
+  SHOPIFY
+  QUICKBOOKS
+  XERO
+}
+
+enum ConnectionStatus {
+  ACTIVE
+  DISCONNECTED
+  ERROR
+}
+
+model Connection {
+  id                     String           @id @default(uuid())
+  tenantId               String
+  provider               Provider
+  encryptedCredentials   String           // KMS-encrypted JSON blob
+  credentialKeyVersion   Int              @default(1)
+  scopes                 String[]
+  status                 ConnectionStatus @default(ACTIVE)
+  connectedAt            DateTime         @default(now())
+  lastUsedAt             DateTime?
+  updatedAt              DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@map("connections")
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  tenantId     String
+  actorUserId  String?
+  action       String
+  resourceType String?
+  resourceId   String?
+  ipAddress    String?
+  userAgent    String?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?   @relation(fields: [actorUserId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}
+
+// ─── MODULE 1: DUNNING ───────────────────────────────────────────────────────
+
+enum FailedPaymentStatus {
+  PENDING
+  RECOVERING
+  RECOVERED
+  WRITTEN_OFF
+}
+
+model FailedPayment {
+  id              String              @id @default(uuid())
+  tenantId        String
+  stripeInvoiceId String
+  stripeCustomerId String
+  amount          Int                 // cents
+  currency        String              @default("usd")
+  failureReason   String?
+  retryCount      Int                 @default(0)
+  status          FailedPaymentStatus @default(PENDING)
+  nextRetryAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  recoveryAttempts RecoveryAttempt[]
+
+  @@unique([tenantId, stripeInvoiceId])
+  @@index([tenantId, status])
+  @@map("failed_payments")
+}
+
+model RecoverySequence {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  stepsJson Json
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("recovery_sequences")
+}
+
+enum RecoveryChannel {
+  EMAIL
+  SMS
+}
+
+enum RecoveryResult {
+  SENT
+  OPENED
+  PAID
+  BOUNCED
+  FAILED
+}
+
+model RecoveryAttempt {
+  id             String         @id @default(uuid())
+  tenantId       String
+  failedPaymentId String
+  channel        RecoveryChannel
+  sentAt         DateTime       @default(now())
+  result         RecoveryResult @default(SENT)
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  failedPayment FailedPayment @relation(fields: [failedPaymentId], references: [id], onDelete: Cascade)
+
+  @@map("recovery_attempts")
+}
+
+// ─── MODULE 2: CANCELLATION SAVE-FLOW ────────────────────────────────────────
+
+enum SaveOfferType {
+  DISCOUNT
+  PAUSE
+  DOWNGRADE
+}
+
+model SaveOffer {
+  id         String        @id @default(uuid())
+  tenantId   String
+  type       SaveOfferType
+  configJson Json
+  isActive   Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  tenant               Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cancellationAttempts CancellationAttempt[]
+
+  @@map("save_offers")
+}
+
+enum CancellationOutcome {
+  SAVED
+  CHURNED
+  PENDING
+}
+
+model CancellationAttempt {
+  id                 String              @id @default(uuid())
+  tenantId           String
+  externalCustomerId String
+  saveOfferId        String?
+  outcome            CancellationOutcome @default(PENDING)
+  occurredAt         DateTime            @default(now())
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saveOffer SaveOffer? @relation(fields: [saveOfferId], references: [id])
+
+  @@index([tenantId, occurredAt])
+  @@map("cancellation_attempts")
+}
+
+// ─── MODULE 3: DISPUTE EVIDENCE ──────────────────────────────────────────────
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  WON
+  LOST
+  NEEDS_RESPONSE
+}
+
+model Dispute {
+  id              String        @id @default(uuid())
+  tenantId        String
+  stripeDisputeId String
+  status          DisputeStatus @default(OPEN)
+  amount          Int
+  currency        String        @default("usd")
+  evidenceDueBy   DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  evidenceBundles EvidenceBundle[]
+
+  @@unique([tenantId, stripeDisputeId])
+  @@map("disputes")
+}
+
+model EvidenceBundle {
+  id           String    @id @default(uuid())
+  tenantId     String
+  disputeId    String
+  orderData    Json      @default("{}")
+  shippingData Json      @default("{}")
+  commsLog     Json      @default("{}")
+  submittedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@map("evidence_bundles")
+}
+
+// ─── MODULE 4: ACCOUNTING SYNC ───────────────────────────────────────────────
+
+enum AccountingProvider {
+  QUICKBOOKS
+  XERO
+}
+
+model AccountingConnection {
+  id                    String             @id @default(uuid())
+  tenantId              String
+  provider              AccountingProvider
+  encryptedAccessToken  String
+  encryptedRefreshToken String
+  tokenExpiresAt        DateTime?
+  realmId               String?            // QuickBooks company ID
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, provider])
+  @@map("accounting_connections")
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  FAILED
+  SKIPPED
+}
+
+model SyncedTransaction {
+  id                String     @id @default(uuid())
+  tenantId          String
+  stripeTxnId       String
+  accountingEntryId String?
+  syncStatus        SyncStatus @default(PENDING)
+  errorMessage      String?
+  syncedAt          DateTime?
+  createdAt         DateTime   @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, stripeTxnId])
+  @@map("synced_transactions")
+}
+
+// ─── MODULE 5: BRANDED INVOICES ──────────────────────────────────────────────
+
+model InvoiceTemplate {
+  id            String   @id @default(uuid())
+  tenantId      String
+  brandingJson  Json
+  localeSettings Json   @default("{}")
+  taxSettings   Json    @default("{}")
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  generatedInvoices GeneratedInvoice[]
+
+  @@map("invoice_templates")
+}
+
+model GeneratedInvoice {
+  id              String   @id @default(uuid())
+  tenantId        String
+  templateId      String
+  stripeInvoiceId String
+  pdfS3Key        String?
+  pdfSignedUrl    String?
+  language        String   @default("en")
+  generatedAt     DateTime @default(now())
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template InvoiceTemplate @relation(fields: [templateId], references: [id])
+
+  @@unique([tenantId, stripeInvoiceId])
+  @@map("generated_invoices")
+}
+
+// ─── MODULE 6: WEBHOOK MONITORING ────────────────────────────────────────────
+
+enum WebhookProvider {
+  STRIPE
+  SHOPIFY
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  FAILED
+  REPLAYED
+}
+
+model WebhookEvent {
+  id          String          @id @default(uuid())
+  tenantId    String
+  provider    WebhookProvider
+  eventType   String
+  eventId     String          // provider's event ID (idempotency)
+  payload     Json
+  status      WebhookStatus   @default(RECEIVED)
+  errorMessage String?
+  receivedAt  DateTime        @default(now())
+  processedAt DateTime?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, eventId])
+  @@index([tenantId, status, receivedAt])
+  @@map("webhook_events")
+}
+
+model AlertRule {
+  id                  String   @id @default(uuid())
+  tenantId            String
+  name                String
+  conditionJson       Json
+  notificationChannel String   // 'slack' | 'email'
+  notificationTarget  String   // webhook URL or email
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("alert_rules")
+}
