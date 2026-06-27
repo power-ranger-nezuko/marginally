@@ -62,6 +62,7 @@ locals {
 
   # Map secrets to container secret references
   secret_refs = [
+    { name = "DATABASE_URL",          valueFrom = var.database_url_arn },
     { name = "JWT_PRIVATE_KEY",       valueFrom = var.secrets["jwt_private_key"] },
     { name = "JWT_PUBLIC_KEY",        valueFrom = var.secrets["jwt_public_key"] },
     { name = "STRIPE_PLATFORM_KEY",   valueFrom = var.secrets["stripe_platform_key"] },

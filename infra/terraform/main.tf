@@ -73,9 +73,13 @@ module "kms" {
 
 # ── Secrets Manager ───────────────────────────────────────────────────────────
 module "secrets" {
-  source      = "./modules/secrets"
-  environment = var.environment
-  common_tags = local.common_tags
+  source       = "./modules/secrets"
+  environment  = var.environment
+  db_endpoint  = module.rds.endpoint
+  db_username  = module.rds.username
+  db_password  = module.rds.db_password
+  db_name      = module.rds.db_name
+  common_tags  = local.common_tags
 }
 
 # ── RDS ──────────────────────────────────────────────────────────────────────
@@ -215,6 +219,7 @@ module "ecs" {
   webhook_queue_url        = module.sqs.webhook_queue_url
   alb_arn_suffix           = module.alb.alb_arn_suffix
   target_group_arn_suffix  = module.alb.target_group_arn_suffix
+  database_url_arn         = module.secrets.database_url_arn
   domain_name              = var.domain_name
   common_tags              = local.common_tags
 

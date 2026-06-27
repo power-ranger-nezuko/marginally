@@ -51,9 +51,9 @@ jobs:
 
       - name: Force ECS redeploy
         run: |
-          aws ecs update-service --cluster marginly-prod --service marginly-prod-api    --force-new-deployment
-          aws ecs update-service --cluster marginly-prod --service marginly-prod-worker --force-new-deployment
-          aws ecs update-service --cluster marginly-prod --service marginly-prod-pdf    --force-new-deployment
+          aws ecs update-service --cluster marginly-prod --service marginly-prod-api    --task-definition marginly-prod-api    --force-new-deployment
+          aws ecs update-service --cluster marginly-prod --service marginly-prod-worker --task-definition marginly-prod-worker --force-new-deployment
+          aws ecs update-service --cluster marginly-prod --service marginly-prod-pdf    --task-definition marginly-prod-pdf    --force-new-deployment
 
       - name: Wait for API to stabilise
         run: |
