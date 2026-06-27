@@ -115,8 +115,8 @@ module "iam" {
   invoices_bucket_arn = module.s3.invoices_bucket_arn
   webhook_queue_arn   = module.sqs.webhook_queue_arn
   secrets_prefix_arn  = "arn:aws:secretsmanager:${var.aws_region}:${data.aws_caller_identity.current.account_id}:secret:/marginly/${var.environment}/*"
-
   aws_region          = var.aws_region
+  github_repo         = "power-ranger-nezuko/marginally"
   common_tags         = local.common_tags
 }
 

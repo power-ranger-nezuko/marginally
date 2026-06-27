@@ -1,0 +1,67 @@
+name: Deploy to Production
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write   # required for OIDC
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            --tag $ECR_REGISTRY/marginly-api:$IMAGE_TAG \
+            --tag $ECR_REGISTRY/marginly-api:latest \
+            ./backend
+          docker push $ECR_REGISTRY/marginly-api:$IMAGE_TAG
+          docker push $ECR_REGISTRY/marginly-api:latest
+
+      - name: Build and upload frontend to S3
+        run: |
+          cd frontend && npm ci && npm run build
+          aws s3 sync dist/ s3://${{ secrets.FRONTEND_S3_BUCKET }}/ --delete \
+            --cache-control "public,max-age=31536000,immutable" \
+            --exclude "index.html"
+          aws s3 cp dist/index.html s3://${{ secrets.FRONTEND_S3_BUCKET }}/index.html \
+            --cache-control "no-cache,no-store,must-revalidate"
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CF_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Force ECS redeploy
+        run: |
+          aws ecs update-service --cluster marginly-prod --service marginly-prod-api    --force-new-deployment
+          aws ecs update-service --cluster marginly-prod --service marginly-prod-worker --force-new-deployment
+          aws ecs update-service --cluster marginly-prod --service marginly-prod-pdf    --force-new-deployment
+
+      - name: Wait for API to stabilise
+        run: |
+          aws ecs wait services-stable \
+            --cluster marginly-prod \
+            --services marginly-prod-api marginly-prod-worker marginly-prod-pdf
+
+      - name: Smoke test
+        run: |
+          sleep 15
+          curl -f https://api.usemarginly.com/api/v1/health || exit 1

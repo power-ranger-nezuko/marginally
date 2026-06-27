@@ -26,6 +26,11 @@ variable "secrets_prefix_arn" {
   type = string
 }
 
+variable "github_repo" {
+  description = "GitHub repo in owner/name format — restricts OIDC role to this repo only"
+  type        = string
+}
+
 variable "common_tags" {
   type = map(string)
 }
