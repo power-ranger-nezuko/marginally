@@ -33,7 +33,8 @@ RUN apk add --no-cache \
       harfbuzz \
       ca-certificates \
       ttf-freefont \
-      curl
+      curl \
+      openssl
 
 # Tell puppeteer-core where Chromium lives (set at build time; overridable at runtime)
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
