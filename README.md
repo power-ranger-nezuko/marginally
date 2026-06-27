@@ -7,6 +7,8 @@ branded invoices, and webhook monitoring.
 See **[docs/project-plan.md](docs/project-plan.md)** for the full architecture,
 phased build plan, marketing plan, and hosting steps. Start there.
 
+**Bugs or feature requests?** Open an issue in the [community repo](https://github.com/power-ranger-nezuko/marginally-community).
+
 ## Layout
 
 ```
