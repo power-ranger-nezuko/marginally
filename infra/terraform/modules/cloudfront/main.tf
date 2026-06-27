@@ -77,7 +77,7 @@ resource "aws_cloudfront_distribution" "frontend" {
   price_class         = "PriceClass_100"
   web_acl_id          = var.waf_acl_arn
 
-  aliases = ["app.${var.domain_name}"]
+  aliases = [var.domain_name, "www.${var.domain_name}"]
 
   origin {
     domain_name = var.frontend_bucket_domain

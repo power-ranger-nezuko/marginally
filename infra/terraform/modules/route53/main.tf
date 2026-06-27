@@ -17,11 +17,23 @@ resource "aws_route53_record" "api" {
   }
 }
 
-# ── app.{domain} → CloudFront (frontend) ─────────────────────────────────────
+# ── {domain} + www.{domain} → CloudFront (frontend) ──────────────────────────
 
 resource "aws_route53_record" "app" {
   zone_id = data.aws_route53_zone.main.zone_id
-  name    = "app.${var.domain_name}"
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = var.frontend_cloudfront_domain
+    zone_id                = var.frontend_cloudfront_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = data.aws_route53_zone.main.zone_id
+  name    = "www.${var.domain_name}"
   type    = "A"
 
   alias {

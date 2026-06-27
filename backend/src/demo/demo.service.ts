@@ -56,7 +56,7 @@ const SCENARIOS: Record<string, ScenarioDto> = {
       {
         step: 1,
         action:
-          "Merchant embeds <script src='https://app.usemarginly.com/widget.js'></script>",
+          "Merchant embeds <script src='https://usemarginly.com/widget.js'></script>",
         result: 'Widget JS loads and attaches to cancel button',
       },
       {

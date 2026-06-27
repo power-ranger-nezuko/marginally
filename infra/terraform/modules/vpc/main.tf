@@ -251,14 +251,6 @@ resource "aws_security_group" "app" {
   description = "ECS app tasks: inbound from ALB, outbound to DB/Redis/internet"
   vpc_id      = aws_vpc.main.id
 
-  egress {
-    description = "HTTPS to internet (external APIs; via NAT in full_scale, direct in lean_scale)"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(var.common_tags, { Name = "marginly-${var.environment}-app-sg" })
 }
 
@@ -278,7 +270,18 @@ resource "aws_security_group" "redis" {
   tags = merge(var.common_tags, { Name = "marginly-${var.environment}-redis-sg" })
 }
 
-# ── Cross-SG rules (added separately to break circular dependencies) ──────────
+# ── Cross-SG rules (all separate — keeps aws_security_group resources bare so ──
+# ── Terraform never reconciles inline vs. separate rules on updates)         ──
+
+resource "aws_security_group_rule" "app_egress_https" {
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.app.id
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "HTTPS to internet (external APIs; via NAT in full_scale, direct in lean_scale)"
+}
 
 resource "aws_security_group_rule" "alb_egress_app" {
   type                     = "egress"
