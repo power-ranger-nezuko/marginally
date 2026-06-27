@@ -3,7 +3,7 @@ import client from './client';
 export interface Tenant {
   id: string;
   name: string;
-  plan: 'FREE' | 'STARTER' | 'GROWTH' | 'ENTERPRISE';
+  plan: 'STARTER' | 'GROWTH' | 'SUITE';
   stripeConnected: boolean;
   shopifyConnected: boolean;
 }

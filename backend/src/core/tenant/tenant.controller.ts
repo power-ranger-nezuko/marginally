@@ -12,6 +12,7 @@ import { TenantService } from './tenant.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
 import { UpdateTenantPlanDto } from './dto/update-tenant.dto';
 import { JwtAuthGuard } from '@core/auth/guards/jwt-auth.guard';
+import { CurrentTenant, TenantContext } from '@core/auth/decorators/current-tenant.decorator';
 
 @Controller('tenants')
 @UseGuards(JwtAuthGuard)
@@ -21,6 +22,19 @@ export class TenantController {
   @Post()
   create(@Body() dto: CreateTenantDto) {
     return this.tenantService.createTenant(dto);
+  }
+
+  @Get('me')
+  getMe(@CurrentTenant() tenant: TenantContext) {
+    return this.tenantService.findById(tenant.tenantId);
+  }
+
+  @Patch('me/plan')
+  updateMyPlan(
+    @CurrentTenant() tenant: TenantContext,
+    @Body() dto: UpdateTenantPlanDto,
+  ) {
+    return this.tenantService.updatePlan(tenant.tenantId, dto.plan);
   }
 
   @Get(':id')

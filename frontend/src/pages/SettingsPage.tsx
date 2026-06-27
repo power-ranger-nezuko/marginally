@@ -4,6 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import * as Toast from '@radix-ui/react-toast';
 import { connectionsApi, Provider } from '../api/connections';
 import { auditApi } from '../api/audit';
+import { tenantsApi, type Tenant } from '../api/tenants';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
 import DataTable, { ColumnDef } from '../components/ui/DataTable';
@@ -15,7 +16,7 @@ const PLAN_COLORS: Record<string, string> = {
   SUITE: 'bg-violet-50 text-violet-700',
 };
 
-const PLANS = [
+const PLANS: { name: string; key: Tenant['plan']; price: string; features: string[] }[] = [
   {
     name: 'Starter',
     key: 'STARTER',
@@ -86,6 +87,11 @@ export default function SettingsPage() {
     queryFn: () => auditApi.getRecentLogs(10),
   });
 
+  const { data: tenantData } = useQuery({
+    queryKey: ['tenant'],
+    queryFn: tenantsApi.getTenant,
+  });
+
   const disconnect = useMutation({
     mutationFn: (provider: Provider) =>
       connectionsApi.disconnectConnection(provider),
@@ -97,8 +103,20 @@ export default function SettingsPage() {
     },
   });
 
-  // Derive current plan from tenant — hardcode GROWTH as placeholder
-  const currentPlan = 'GROWTH';
+  const upgradePlan = useMutation({
+    mutationFn: (plan: Tenant['plan']) => tenantsApi.updatePlan(plan),
+    onSuccess: (updated) => {
+      void qc.invalidateQueries({ queryKey: ['tenant'] });
+      setToastMsg(`Plan updated to ${updated.plan}.`);
+      setToastOpen(true);
+    },
+    onError: () => {
+      setToastMsg('Failed to update plan. Please try again.');
+      setToastOpen(true);
+    },
+  });
+
+  const currentPlan = tenantData?.plan ?? 'STARTER';
 
   return (
     <Toast.Provider>
@@ -220,12 +238,13 @@ export default function SettingsPage() {
                     ))}
                   </ul>
                   {!isCurrent && (
-                    <a
-                      href="#"
-                      className="block w-full rounded-lg bg-brand-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-brand-700"
+                    <button
+                      onClick={() => upgradePlan.mutate(plan.key)}
+                      disabled={upgradePlan.isPending}
+                      className="block w-full rounded-lg bg-brand-600 px-4 py-2 text-center text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-50"
                     >
-                      Upgrade to {plan.name}
-                    </a>
+                      {upgradePlan.isPending ? 'Updating…' : `Upgrade to ${plan.name}`}
+                    </button>
                   )}
                 </div>
               );
