@@ -215,6 +215,7 @@ module "ecs" {
   webhook_queue_url        = module.sqs.webhook_queue_url
   alb_arn_suffix           = module.alb.alb_arn_suffix
   target_group_arn_suffix  = module.alb.target_group_arn_suffix
+  domain_name              = var.domain_name
   common_tags              = local.common_tags
 
   depends_on = [module.alb]

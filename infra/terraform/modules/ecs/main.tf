@@ -122,6 +122,7 @@ resource "aws_ecs_task_definition" "api" {
       { name = "PORT",             value = "4000" },
       { name = "SQS_WEBHOOK_URL",  value = var.webhook_queue_url },
       { name = "AWS_REGION",       value = var.aws_region },
+      { name = "SES_FROM_EMAIL",   value = "noreply@${var.domain_name}" },
     ]
 
     secrets = local.secret_refs
