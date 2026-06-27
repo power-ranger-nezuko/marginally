@@ -11,6 +11,8 @@ import { ListFailedPaymentsDto } from './dtos/list-failed-payments.dto';
 const REDIS_CONNECTION = {
   host: process.env.REDIS_HOST ?? 'localhost',
   port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+  ...(process.env.REDIS_AUTH_TOKEN ? { password: process.env.REDIS_AUTH_TOKEN } : {}),
+  ...(process.env.REDIS_TLS === '1' ? { tls: {} } : {}),
 };
 
 interface StripeInvoicePaymentFailedEvent {
@@ -59,6 +61,10 @@ export class DunningService implements OnModuleInit, OnModuleDestroy {
 
     this.worker.on('failed', (job, err) => {
       this.logger.error(`Dunning job ${job?.id} failed: ${err.message}`);
+    });
+
+    this.worker.on('error', (err) => {
+      this.logger.error(`Dunning worker error: ${err.message}`);
     });
 
     this.logger.log('DunningService initialized');

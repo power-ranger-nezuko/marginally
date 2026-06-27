@@ -91,6 +91,18 @@ variable "domain_name" {
   type = string
 }
 
+variable "redis_host" {
+  description = "ElastiCache primary endpoint hostname"
+  type        = string
+  sensitive   = true
+}
+
+variable "redis_auth_secret_arn" {
+  description = "Secrets Manager ARN for the ElastiCache AUTH token"
+  type        = string
+  sensitive   = true
+}
+
 variable "common_tags" {
   type = map(string)
 }

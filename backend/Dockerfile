@@ -17,8 +17,8 @@ COPY src ./src/
 RUN npx prisma generate
 RUN npm run build
 
-# Prune dev dependencies so only production deps remain
-RUN npm ci --omit=dev --ignore-scripts
+# Prune dev dependencies in-place so .prisma/client generated above is preserved
+RUN npm prune --omit=dev
 
 # ── Stage 2: production image ──────────────────────────────────────────────────
 FROM node:20-alpine AS runner

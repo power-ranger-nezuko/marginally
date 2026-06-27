@@ -221,6 +221,8 @@ module "ecs" {
   target_group_arn_suffix  = module.alb.target_group_arn_suffix
   database_url_arn         = module.secrets.database_url_arn
   domain_name              = var.domain_name
+  redis_host               = module.elasticache.primary_endpoint
+  redis_auth_secret_arn    = module.elasticache.auth_secret_arn
   common_tags              = local.common_tags
 
   depends_on = [module.alb]

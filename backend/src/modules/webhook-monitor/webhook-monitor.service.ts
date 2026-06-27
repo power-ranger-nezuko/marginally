@@ -9,6 +9,8 @@ import { GetEventsDto } from './dtos/get-events.dto';
 const REDIS_CONNECTION = {
   host: process.env.REDIS_HOST ?? 'localhost',
   port: parseInt(process.env.REDIS_PORT ?? '6379', 10),
+  ...(process.env.REDIS_AUTH_TOKEN ? { password: process.env.REDIS_AUTH_TOKEN } : {}),
+  ...(process.env.REDIS_TLS === '1' ? { tls: {} } : {}),
 };
 
 @Injectable()
@@ -38,6 +40,10 @@ export class WebhookMonitorService implements OnModuleInit, OnModuleDestroy {
         concurrency: 5,
       },
     );
+
+    this.worker.on('error', (err) => {
+      this.logger.error(`Webhook worker error: ${err.message}`);
+    });
 
     this.worker.on('failed', async (job, err) => {
       if (!job) return;

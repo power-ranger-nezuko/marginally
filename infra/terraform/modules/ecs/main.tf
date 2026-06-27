@@ -69,6 +69,7 @@ locals {
     { name = "STRIPE_WEBHOOK_SECRET", valueFrom = var.secrets["stripe_webhook_secret"] },
     { name = "SHOPIFY_API_SECRET",    valueFrom = var.secrets["shopify_api_secret"] },
     { name = "WIDGET_SECRET",         valueFrom = var.secrets["widget_secret"] },
+    { name = "REDIS_AUTH_TOKEN",      valueFrom = var.redis_auth_secret_arn },
   ]
 }
 
@@ -121,6 +122,9 @@ resource "aws_ecs_task_definition" "api" {
       { name = "SQS_WEBHOOK_URL",  value = var.webhook_queue_url },
       { name = "AWS_REGION",       value = var.aws_region },
       { name = "SES_FROM_EMAIL",   value = "noreply@${var.domain_name}" },
+      { name = "REDIS_HOST",       value = var.redis_host },
+      { name = "REDIS_PORT",       value = "6379" },
+      { name = "REDIS_TLS",        value = "1" },
     ]
 
     secrets = local.secret_refs
@@ -166,6 +170,9 @@ resource "aws_ecs_task_definition" "worker" {
       { name = "NODE_ENV",         value = var.environment },
       { name = "SQS_WEBHOOK_URL",  value = var.webhook_queue_url },
       { name = "AWS_REGION",       value = var.aws_region },
+      { name = "REDIS_HOST",       value = var.redis_host },
+      { name = "REDIS_PORT",       value = "6379" },
+      { name = "REDIS_TLS",        value = "1" },
     ]
 
     secrets = local.secret_refs
