@@ -246,6 +246,26 @@ resource "aws_iam_role_policy" "github_deploy" {
           aws_iam_role.pdf_task.arn,
           aws_iam_role.execution.arn
         ]
+      },
+      {
+        Sid    = "S3FrontendDeploy"
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = [
+          "arn:aws:s3:::marginly-frontend-${var.environment}",
+          "arn:aws:s3:::marginly-frontend-${var.environment}/*"
+        ]
+      },
+      {
+        Sid      = "CloudFrontInvalidate"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = ["*"]
       }
     ]
   })
