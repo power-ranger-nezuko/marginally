@@ -2,6 +2,7 @@ name: Deploy to Production
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   id-token: write   # required for OIDC
