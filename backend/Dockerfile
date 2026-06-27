@@ -51,6 +51,6 @@ COPY --chown=appuser:appgroup --from=builder /app/prisma ./prisma
 
 EXPOSE 4000
 
-# Default entrypoint is the API server.
+# Run migrations then start the API server.
 # Worker and PDF services override this via ECS task definition `command`.
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
