@@ -103,6 +103,12 @@ variable "redis_auth_secret_arn" {
   sensitive   = true
 }
 
+variable "stripe_client_id" {
+  description = "Stripe Connect OAuth client ID (ca_xxx). Leave empty until Connect onboarding is complete."
+  type        = string
+  default     = ""
+}
+
 variable "common_tags" {
   type = map(string)
 }

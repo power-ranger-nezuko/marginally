@@ -126,6 +126,8 @@ resource "aws_ecs_task_definition" "api" {
       { name = "REDIS_PORT",       value = "6379" },
       { name = "REDIS_TLS",        value = "1" },
       { name = "FRONTEND_URL",     value = "https://${var.domain_name}" },
+      { name = "APP_URL",          value = "https://${var.domain_name}" },
+      { name = "STRIPE_CLIENT_ID", value = var.stripe_client_id },
     ]
 
     secrets = local.secret_refs
