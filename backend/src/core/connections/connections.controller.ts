@@ -75,7 +75,14 @@ export class ConnectionsController {
       state,
     });
 
-    res.redirect(`https://connect.stripe.com/oauth/authorize?${params}`);
+    const oauthUrl = `https://connect.stripe.com/oauth/authorize?${params}`;
+
+    // XHR/fetch callers (Axios sends Accept: application/json) get a JSON URL
+    // so they can redirect programmatically with the Authorization header in place.
+    if (req.headers.accept?.includes('application/json')) {
+      return res.json({ url: oauthUrl });
+    }
+    res.redirect(oauthUrl);
   }
 
   @Get('stripe/oauth/callback')

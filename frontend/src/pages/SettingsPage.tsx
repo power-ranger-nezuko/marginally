@@ -1,14 +1,17 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as Dialog from '@radix-ui/react-dialog';
 import * as Toast from '@radix-ui/react-toast';
 import { connectionsApi, Provider } from '../api/connections';
 import { auditApi } from '../api/audit';
 import { tenantsApi, type Tenant } from '../api/tenants';
+import client from '../api/client';
 import PageHeader from '../components/ui/PageHeader';
 import StatusBadge from '../components/ui/StatusBadge';
 import DataTable, { ColumnDef } from '../components/ui/DataTable';
 import type { AuditLog } from '../api/audit';
+
+const ALL_PROVIDERS: Provider[] = ['stripe', 'shopify'];
 
 const PLAN_COLORS: Record<string, string> = {
   STARTER: 'bg-gray-100 text-gray-700',
@@ -118,6 +121,22 @@ export default function SettingsPage() {
 
   const currentPlan = tenantData?.plan ?? 'STARTER';
 
+  const connectStripe = useCallback(async () => {
+    try {
+      const { data } = await client.get<{ url: string }>('/connections/stripe/oauth');
+      window.location.href = data.url;
+    } catch {
+      setToastMsg('Failed to start Stripe connection. Please try again.');
+      setToastOpen(true);
+    }
+  }, []);
+
+  // Merge live data with all known providers so cards always render
+  const displayConnections = ALL_PROVIDERS.map((provider) => {
+    const live = connections?.find((c) => c.provider === provider);
+    return live ?? { provider, connected: false, connectedAt: undefined };
+  });
+
   return (
     <Toast.Provider>
       <div>
@@ -136,7 +155,7 @@ export default function SettingsPage() {
                     className="h-16 animate-pulse rounded-xl bg-gray-100"
                   />
                 ))
-              : connections?.map((conn) => (
+              : displayConnections.map((conn) => (
                   <div
                     key={conn.provider}
                     className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4"
@@ -164,24 +183,19 @@ export default function SettingsPage() {
                       />
                       {conn.connected ? (
                         <button
-                          onClick={() =>
-                            setConfirmDisconnect(conn.provider)
-                          }
+                          onClick={() => setConfirmDisconnect(conn.provider)}
                           className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                         >
                           Disconnect
                         </button>
                       ) : (
-                        <a
-                          href={
-                            conn.provider === 'stripe'
-                              ? '/api/v1/connections/stripe/oauth'
-                              : '#'
-                          }
-                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700"
+                        <button
+                          onClick={conn.provider === 'stripe' ? connectStripe : undefined}
+                          disabled={conn.provider !== 'stripe'}
+                          className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Connect {PROVIDER_LABELS[conn.provider]}
-                        </a>
+                        </button>
                       )}
                     </div>
                   </div>
