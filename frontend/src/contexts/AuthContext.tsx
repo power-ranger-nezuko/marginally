@@ -42,17 +42,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     const data: LoginResponse = await authApi.login(email, password);
     localStorage.setItem('accessToken', data.accessToken);
+    localStorage.setItem('refreshToken', data.refreshToken);
     const me = await authApi.me();
+    localStorage.setItem('userId', me.id);
     setUser(me);
   }, []);
 
   const logout = useCallback(async () => {
+    const userId = localStorage.getItem('userId') ?? '';
+    const refreshToken = localStorage.getItem('refreshToken') ?? '';
     try {
-      await authApi.logout();
+      if (userId && refreshToken) await authApi.logout(userId, refreshToken);
     } catch {
       // best-effort
     } finally {
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('userId');
       localStorage.removeItem('user');
       setUser(null);
     }

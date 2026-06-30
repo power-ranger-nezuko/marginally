@@ -2,13 +2,7 @@ import client from './client';
 
 export interface LoginResponse {
   accessToken: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    tenantId: string;
-  };
+  refreshToken: string;
 }
 
 export interface MeResponse {
@@ -26,10 +20,13 @@ export const authApi = {
   signup: (tenantName: string, email: string, password: string) =>
     client.post<LoginResponse>('/auth/signup', { tenantName, email, password }).then((r) => r.data),
 
-  logout: () => client.post('/auth/logout').then((r) => r.data),
+  logout: (userId: string, refreshToken: string) =>
+    client.post('/auth/logout', { userId, refreshToken }).then((r) => r.data),
 
-  refresh: () =>
-    client.post<{ accessToken: string }>('/auth/refresh').then((r) => r.data),
+  refresh: (userId: string, refreshToken: string) =>
+    client
+      .post<{ accessToken: string }>('/auth/refresh', { userId, refreshToken })
+      .then((r) => r.data),
 
   me: () => client.get<MeResponse>('/auth/me').then((r) => r.data),
 };

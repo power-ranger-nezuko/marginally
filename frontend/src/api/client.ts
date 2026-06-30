@@ -52,9 +52,11 @@ client.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        const userId = localStorage.getItem('userId') ?? '';
+        const refreshToken = localStorage.getItem('refreshToken') ?? '';
         const { data } = await axios.post<{ accessToken: string }>(
           '/api/v1/auth/refresh',
-          {},
+          { userId, refreshToken },
           { withCredentials: true },
         );
         const newToken = data.accessToken;
